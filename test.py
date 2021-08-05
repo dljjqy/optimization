@@ -1,5 +1,6 @@
 
 import numpy as np
+import json
 from pathlib import Path
 from numpy.core.defchararray import index
 from osgeo import gdal
@@ -11,7 +12,8 @@ ImgNames = ["ZY3_01a_hsnbavp_001124_20121011_111311_0008_SASMAC_CHN_sec_rel_001_
             "ZY3_01a_hsnfavp_001124_20121011_111213_0008_SASMAC_CHN_sec_rel_001_1210128113.TIF",
             "ZY3_01a_hsnnavp_001124_20121011_111242_0007_SASMAC_CHN_sec_rel_001_1210127949.TIF"]
 test_file = './dem1024 11.img'
-# First thing : transform dem file from project coord to geo coord.
+
+
 def Getgeo2lonlatTrans(data):
     '''
         input: data. gdal.Open(path).
@@ -24,26 +26,33 @@ def Getgeo2lonlatTrans(data):
     ct = osr.CoordinateTransformation(prosrs, geosrs)
     return ct
 
-def transform(x,y, ct):
+
+def transform(x, y, ct):
     coords = ct.TransformPoint(x, y)
     return coords[:2]
 
+
 def SoupRPC(rpc_dic):
-    rpc_dic['HEIGHT_OFF'] = float(rpc_dic['HEIGHT_OFF'].split()[0])   
-    rpc_dic['HEIGHT_SCALE'] = float(rpc_dic['HEIGHT_SCALE'].split()[0])   
-    rpc_dic['LAT_OFF'] = float(rpc_dic['LAT_OFF'].split()[0])   
-    rpc_dic['LAT_SCALE'] = float(rpc_dic['LAT_SCALE'].split()[0])   
-    rpc_dic['LINE_DEN_COEFF'] = list(map(float, (rpc_dic['LINE_DEN_COEFF'].split())))   
-    rpc_dic['LINE_NUM_COEFF'] = list(map(float, (rpc_dic['LINE_NUM_COEFF'].split())))   
-    rpc_dic['LINE_OFF'] = float(rpc_dic['LINE_OFF'].split()[0])   
-    rpc_dic['LINE_SCALE'] = float(rpc_dic['LINE_SCALE'].split()[0])   
-    rpc_dic['LONG_OFF'] = float(rpc_dic['LONG_OFF'].split()[0])   
-    rpc_dic['LONG_SCALE'] = float(rpc_dic['LONG_SCALE'].split()[0])   
-    rpc_dic['SAMP_DEN_COEFF'] = list(map(float, (rpc_dic['SAMP_DEN_COEFF'].split())))   
-    rpc_dic['SAMP_NUM_COEFF'] = list(map(float, (rpc_dic['SAMP_NUM_COEFF'].split())))   
-    rpc_dic['SAMP_OFF'] = float(rpc_dic['SAMP_OFF'].split()[0])   
-    rpc_dic['SAMP_SCALE'] = float(rpc_dic['SAMP_SCALE'].split()[0])   
+    rpc_dic['HEIGHT_OFF'] = float(rpc_dic['HEIGHT_OFF'].split()[0])
+    rpc_dic['HEIGHT_SCALE'] = float(rpc_dic['HEIGHT_SCALE'].split()[0])
+    rpc_dic['LAT_OFF'] = float(rpc_dic['LAT_OFF'].split()[0])
+    rpc_dic['LAT_SCALE'] = float(rpc_dic['LAT_SCALE'].split()[0])
+    rpc_dic['LINE_DEN_COEFF'] = list(
+        map(float, (rpc_dic['LINE_DEN_COEFF'].split())))
+    rpc_dic['LINE_NUM_COEFF'] = list(
+        map(float, (rpc_dic['LINE_NUM_COEFF'].split())))
+    rpc_dic['LINE_OFF'] = float(rpc_dic['LINE_OFF'].split()[0])
+    rpc_dic['LINE_SCALE'] = float(rpc_dic['LINE_SCALE'].split()[0])
+    rpc_dic['LONG_OFF'] = float(rpc_dic['LONG_OFF'].split()[0])
+    rpc_dic['LONG_SCALE'] = float(rpc_dic['LONG_SCALE'].split()[0])
+    rpc_dic['SAMP_DEN_COEFF'] = list(
+        map(float, (rpc_dic['SAMP_DEN_COEFF'].split())))
+    rpc_dic['SAMP_NUM_COEFF'] = list(
+        map(float, (rpc_dic['SAMP_NUM_COEFF'].split())))
+    rpc_dic['SAMP_OFF'] = float(rpc_dic['SAMP_OFF'].split()[0])
+    rpc_dic['SAMP_SCALE'] = float(rpc_dic['SAMP_SCALE'].split()[0])
     return rpc_dic
+
 
 def clip_dem_img(dem, out_path, name, offset_x, offset_y, block_xsize, block_ysize):
     '''
@@ -54,19 +63,23 @@ def clip_dem_img(dem, out_path, name, offset_x, offset_y, block_xsize, block_ysi
     out_band = band.ReadAsArray(offset_x, offset_y, block_xsize, block_ysize)
 
     driver = gdal.GetDriverByName("HFA")
-    out_dem = driver.Create(out_path+name, block_xsize, block_ysize, 1, band.DataType)
+    out_dem = driver.Create(out_path+name, block_xsize,
+                            block_ysize, 1, band.DataType)
 
     trans = dem.GetGeoTransform()
     top_left_x = trans[0] + offset_x * trans[1]
     top_left_y = trans[3] + offset_y * trans[5]
 
-    dst_trans = (top_left_x, trans[1], trans[2], top_left_y, trans[4], trans[5])
+    dst_trans = (top_left_x, trans[1], trans[2],
+                 top_left_y, trans[4], trans[5])
     out_dem.SetGeoTransform(dst_trans)
     out_dem.SetProjection(dem.GetProjection())
 
     out_dem.GetRasterBand(1).WriteArray(out_band)
     out_dem.FlushCache()
+    del out_dem
     return True
+
 
 def divide_dem(dem, out_path='./', size=1024):
     '''
@@ -76,14 +89,21 @@ def divide_dem(dem, out_path='./', size=1024):
     nx, ny = 0, 0
     endx, endy = start_x+size, start_y+size
     xsize, ysize = dem.RasterXSize, dem.RasterYSize
-    while endx<=xsize:
-        while endy<=ysize:
-            name = 'dem'+ str(size)+ ' '+ str(nx)+ str(ny)+ '.img'
-            clip_dem_img(dem, out_path, name,start_x, start_y, size, size)
-            ny+=1; start_y=endy; endy+=size
-        nx+=1; start_x=endx; endx+=size
-        ny=0;start_y=0; endy=start_y+size
+    while endx <= xsize:
+        while endy <= ysize:
+            name = 'dem' + str(size) + ' ' + str(nx) + str(ny) + '.img'
+            clip_dem_img(dem, out_path, name, start_x, start_y, size, size)
+            ny += 1
+            start_y = endy
+            endy += size
+        nx += 1
+        start_x = endx
+        endx += size
+        ny = 0
+        start_y = 0
+        endy = start_y+size
     return True
+
 
 def check_img(path, novalue=-99999.0):
     '''
@@ -94,34 +114,37 @@ def check_img(path, novalue=-99999.0):
         temp = gdal.Open(str(img))
         arr = temp.GetRasterBand(1).ReadAsArray()
         if novalue in arr:
+            del temp
             img.unlink()
+    return True
 
-def clean(path, suffix = 'img'):
+
+def clean(path, suffix='img'):
     '''
     Clean all the file has 'suffix'.
     '''
     path = Path(path)
     for img in sorted(path.glob('*.'+suffix)):
         img.unlink()
-    
+
 
 def img2arr(img):
-    # path = Path(path)
-    # for img in sorted(path.glob('*.img')):
     dem = gdal.Open(img)
     arr = dem.GetRasterBand(1).ReadAsArray()
     (x0, dx, _, y0, _, dy) = dem.GetGeoTransform()
     xsize, ysize = dem.RasterXSize, dem.RasterYSize
-    arr = arr.reshape(xsize, ysize,1)
+    arr = arr.reshape(xsize, ysize, 1)
     x = np.arange(xsize)
     y = np.arange(ysize)
-    x = x0 + x*dx 
+    x = x0 + x*dx
     y = y0 + y*dy
     xx, yy = np.meshgrid(x, y)
     xx = xx.reshape(xsize, ysize, 1)
     yy = yy.reshape(xsize, ysize, 1)
-    mat = np.concatenate((xx, yy, arr),axis=2 )
+    mat = np.concatenate((xx, yy, arr), axis=2)
+    del dem
     return mat
+
 
 def imgs2arrs(path):
     '''
@@ -134,30 +157,92 @@ def imgs2arrs(path):
         np.save(name, mat)
     return True
 
-def PointCoordTrans(dem, tif):
+def getSRSPair(dataset):
+    '''
+    获得给定数据的投影坐标系和大地坐标系
+    params: 
+        dataset: GDAL地理数据
+    return:
+        投影坐标系, 大地坐标系
+    '''
+    pSRS = osr.SpatialReference()
+    pSRS.ImportFromWkt(dataset.GetProjection())
+    gSRS = pSRS.CloneGeogCS()
+    return pSRS, gSRS
+
+
+def Point_Geo2LonLat(point, pSRS, gSRS):
+    '''
+    NoUse.
+    '''
+    ct = osr.CoordinateTransformation(pSRS, gSRS)
+    print(ct)
+    return ct.TransformPoint(point)
+
+def dem_Geo2LonLat(dem_path, save_mat=True):
+    '''
+    Transform entir dem file coordinate and save the Lonitude,latitude coord as .npy
+    Same name as dem file.
+    '''
+    dem = gdal.Open(dem_path)
+    arr = img2arr(dem_path)
+
+    # Get coordinate transform
+    psrs, gsrs = getSRSPair(dem)
+    ct = osr.CoordinateTransformation(psrs, gsrs)
+
+    # Transform dem file
+    (nx, ny, nc) = arr.shape
+    arr = arr.reshape((nx*ny, nc))
+    result = np.array(ct.TransformPoints(arr))
+    result = result.reshape((nx, ny, nc))
     
-    pass
+    # Save result as npy file
+    if save_mat:
+        dem_path = Path(dem_path)
+        result_name = dem_path.name + '.npy'
+        np.save(result_name, result)
+    return result
 
 
 if __name__ == "__main__":
-    if imgs2arrs('./'):
-        pass
-    # x, y = (426635, 4479265)
-    # x1, y1 = (426645, 4479255)
-    
-    # dem = gdal.Open(DataRoot + DemName)
-    # img1 = gdal.Open(DataRoot + ImgNames[0])
-    # print(transform(x, y, Getgeo2lonlatTrans(dem)))
-    # print(transform(x1, y1, Getgeo2lonlatTrans(dem)))
-    # dic = SoupRPC(img1.GetMetadata('RPC'))
-    # for k in dic.keys():
-        # print(k, " : ", dic[k])
-    
-    # # clip_dem(dem, "./", "clip.tif", 1000, 1000, 100, 100)
-    # clean('./')
-    # divide_dem(dem)
-    # check_img('./')
-    # dem = gdal.Open('dem1024 11.img')
-    # arr = img2arr(test_file)
-    # print(arr[0,0,2])
+    crop_path = 'E:\\optimization\\crop\\'
+    test_dem_path = crop_path + 'dem1024 11.img'
 
+    # (Finished)Test function dem_Geo2LonLat
+    arr = dem_Geo2LonLat(test_dem_path)
+    # print(arr.shape)
+    # print(arr[0,0,:])
+
+    # mat = dem_Geo2LonLat(test_dem_path, './test.npy')
+    # with open('./data.json', 'r') as load_f:
+    #     data_info = json.load(load_f)
+    # dem_path = data_info['root'] + data_info['dem']
+    # tif_path = data_info['root'] + list(data_info['images'].keys())[0]
+    # dem = gdal.Open(dem_path)
+    # tif = gdal.Open(tif_path)
+
+# (Finished!)Divide dem and Select clipped dem.
+    # divide_dem(dem, crop_path)
+    # check_img(crop_path)
+
+    # (Finished)Test Function Point_Geo2LonLat
+    # dem = gdal.Open(test_dem_path)
+    # # Get a point.
+    # arr = img2arr(test_dem_path)
+    # (x1, y1) = arr[0,0,:2]
+    # (x2, y2) = arr[1,0,:2]
+    # points = [arr[0,0,:2], (x2,y2)]
+    # Get proj coord and geo coord
+    # dem_psrs = osr.SpatialReference()
+    # dem_psrs.ImportFromWkt(dem.GetProjection())
+    # dem_gsrs = dem_psrs.CloneGeogCS()
+    # ct = osr.CoordinateTransformation(dem_psrs, dem_gsrs)
+    # print(arr[0,0,:])
+    # print(ct.TransformPoint(arr[0,0,:2]))
+    # print(ct.TransformPoint(*arr[0,0,:2]))
+    # print(ct.TransformPoints(points))
+    
+
+    # del dem
+    # del tif
