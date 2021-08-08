@@ -1,4 +1,3 @@
-
 import numpy as np
 import json
 from pathlib import Path
@@ -212,19 +211,75 @@ def readRPC_txt(txt):
     with open(txt, 'r') as f:
         for line in f.readlines():
             line = line.strip('\n')
-            line = line.replace('', '.')
             temp = line.split(':')
             keys.append(temp[0])
             labels.append(float(temp[1].split()[0]))
             
     return dict(zip(keys, labels))
 
+def normlize(lat, lon, h, dic):
+    P = (lat - dic['LAT_OFF'])/dic['LAT_SCALE']
+    L = (lon - dic['LONG_OFF'])/dic['LONG_SCALE']
+    H = (h - dic['HEIGHT_OFF'])/dic['HEIGHT_SCALE']
+    return P, L, H
+
+def denormliaze(rn, cn, dic):
+    row = rn * dic['LINE_SCALE'] + dic['LINE_OFF']
+    col = cn * dic['SAMP_SCALE'] + dic['SAMP_OFF']
+    return row, col
+
+
+def rn(dic, P, L, H):
+    up =dic['LINE_NUM_COEFF_1'] + dic['LINE_NUM_COEFF_2']*L + dic['LINE_NUM_COEFF_3']*P + dic['LINE_NUM_COEFF_4']*H + dic['LINE_NUM_COEFF_5']*L*P + \
+        dic['LINE_NUM_COEFF_6']*L*H + dic['LINE_NUM_COEFF_7']*P*H + dic['LINE_NUM_COEFF_8']*L*L + dic['LINE_NUM_COEFF_9']*P*P + dic['LINE_NUM_COEFF_10']*H*H +\
+        dic['LINE_NUM_COEFF_11']*P*L*H + dic['LINE_NUM_COEFF_12']*L*L*L + dic['LINE_NUM_COEFF_13']*L*P*P + dic['LINE_NUM_COEFF_14']*L*H*H + dic['LINE_NUM_COEFF_15']*L*L*P +\
+        dic['LINE_NUM_COEFF_16']*P*P*P + dic['LINE_NUM_COEFF_17']*P*H*H + dic['LINE_NUM_COEFF_18']*L*L*H + dic['LINE_NUM_COEFF_19']*P*P*H + dic['LINE_NUM_COEFF_20']*H*H*H
+
+    down=dic['LINE_DEN_COEFF_1'] + dic['LINE_DEN_COEFF_2']*L + dic['LINE_DEN_COEFF_3']*P + dic['LINE_DEN_COEFF_4']*H + dic['LINE_DEN_COEFF_5']*L*P + \
+        dic['LINE_DEN_COEFF_6']*L*H + dic['LINE_DEN_COEFF_7']*P*H + dic['LINE_DEN_COEFF_8']*L*L + dic['LINE_DEN_COEFF_9']*P*P + dic['LINE_DEN_COEFF_10']*H*H +\
+        dic['LINE_DEN_COEFF_11']*P*L*H + dic['LINE_DEN_COEFF_12']*L*L*L + dic['LINE_DEN_COEFF_13']*L*P*P + dic['LINE_DEN_COEFF_14']*L*H*H + dic['LINE_DEN_COEFF_15']*L*L*P +\
+        dic['LINE_DEN_COEFF_16']*P*P*P + dic['LINE_DEN_COEFF_17']*P*H*H + dic['LINE_DEN_COEFF_18']*L*L*H + dic['LINE_DEN_COEFF_19']*P*P*H + dic['LINE_DEN_COEFF_20']*H*H*H
+
+    return up/down
+
+def cn(dic, P,L,H):
+    up =dic['SAMP_NUM_COEFF_1'] + dic['SAMP_NUM_COEFF_2']*L + dic['SAMP_NUM_COEFF_3']*P + dic['SAMP_NUM_COEFF_4']*H + dic['SAMP_NUM_COEFF_5']*L*P + \
+        dic['SAMP_NUM_COEFF_6']*L*H + dic['SAMP_NUM_COEFF_7']*P*H + dic['SAMP_NUM_COEFF_8']*L*L + dic['SAMP_NUM_COEFF_9']*P*P + dic['SAMP_NUM_COEFF_10']*H*H +\
+        dic['SAMP_NUM_COEFF_11']*P*L*H + dic['SAMP_NUM_COEFF_12']*L*L*L + dic['SAMP_NUM_COEFF_13']*L*P*P + dic['SAMP_NUM_COEFF_14']*L*H*H + dic['SAMP_NUM_COEFF_15']*L*L*P +\
+        dic['SAMP_NUM_COEFF_16']*P*P*P + dic['SAMP_NUM_COEFF_17']*P*H*H + dic['SAMP_NUM_COEFF_18']*L*L*H + dic['SAMP_NUM_COEFF_19']*P*P*H + dic['SAMP_NUM_COEFF_20']*H*H*H
+
+    down=dic['SAMP_DEN_COEFF_1'] + dic['SAMP_DEN_COEFF_2']*L + dic['SAMP_DEN_COEFF_3']*P + dic['SAMP_DEN_COEFF_4']*H + dic['SAMP_DEN_COEFF_5']*L*P + \
+        dic['SAMP_DEN_COEFF_6']*L*H + dic['SAMP_DEN_COEFF_7']*P*H + dic['SAMP_DEN_COEFF_8']*L*L + dic['SAMP_DEN_COEFF_9']*P*P + dic['SAMP_DEN_COEFF_10']*H*H +\
+        dic['SAMP_DEN_COEFF_11']*P*L*H + dic['SAMP_DEN_COEFF_12']*L*L*L + dic['SAMP_DEN_COEFF_13']*L*P*P + dic['SAMP_DEN_COEFF_14']*L*H*H + dic['SAMP_DEN_COEFF_15']*L*L*P +\
+        dic['SAMP_DEN_COEFF_16']*P*P*P + dic['SAMP_DEN_COEFF_17']*P*H*H + dic['SAMP_DEN_COEFF_18']*L*L*H + dic['SAMP_DEN_COEFF_19']*P*P*H + dic['SAMP_DEN_COEFF_20']*H*H*H
+
+    return up/down
+
+
+def calRC(dic, lat, lon, h):
+    P,L,H = normlize(lat,lon, h, dic)
+    Rn = rn(dic, P, L, H)
+    Cn = cn(dic, P, L, H)
+    # return denormliaze(Rn, Cn, dic)
+    return Rn, Cn
+
 if __name__ == "__main__":
     # crop_path = 'E:\\optimization\\crop\\'
-    # test_dem_path = crop_path + 'dem1024 11.img'
-    # (Unfinished!)Test readRPC_txt:
-    txt = 'E:\\optimization\\data\\001124_20121011\\ZY3_01a_hsnbavp_001124_20121011_111311_0008_SASMAC_CHN_sec_rel_001_1210128038_rpc.TXT'
+    # test_dem_path = 'dem1024 11.img'
     
+    # (Unfinished!)Test rn and cn function.
+    txt = '/home/whujjq/workspace/data/001124_20121011/ZY3_01a_hsnbavp_001124_20121011_111311_0008_SASMAC_CHN_sec_rel_001_1210128038_rpc.TXT'
+    arr = np.load('dem1024 11.npy')
+    dic = readRPC_txt(txt)
+    point = calRC(dic, *arr[0,0,:])
+    print(arr[0,0,:])
+    print(normlize(*arr[0,0,:], dic))
+    print(point)
+    # (Finished!)Test readRPC_txt:
+    # txt = 'E:\\optimization\\data\\001124_20121011\\ZY3_01a_hsnbavp_001124_20121011_111311_0008_SASMAC_CHN_sec_rel_001_1210128038_rpc.TXT'
+    # txt = '/home/whujjq/workspace/data/001124_20121011/ZY3_01a_hsnbavp_001124_20121011_111311_0008_SASMAC_CHN_sec_rel_001_1210128038_rpc.TXT'
+    # dic = readRPC_txt(txt)
+    # print(dic)
     # (Finished)Test function dem_Geo2LonLat
     # arr = np.load('./dem1024 11.npy')
     # print(arr.shape)
@@ -233,7 +288,7 @@ if __name__ == "__main__":
     # print(arr.shape)
     # print(arr[0,0,:])
 
-    # mat = dem_Geo2LonLat(test_dem_path, './test.npy')
+    # mat = dem_Geo2LonLat(test_dem_path)
     # with open('./data.json', 'r') as load_f:
     #     data_info = json.load(load_f)
     # dem_path = data_info['root'] + data_info['dem']
@@ -263,3 +318,4 @@ if __name__ == "__main__":
 
     # del dem
     # del tif
+    pass
