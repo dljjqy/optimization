@@ -183,6 +183,8 @@ def dem_Geo2LonLat(dem_path, save_mat=True):
     '''
     Transform entir dem file coordinate and save the Lonitude,latitude coord as .npy
     Same name as dem file.
+    return: arr like. shape: dem_Xsize * dem_Ysize * 3
+    3 channels: Lonitude, Latitude, Height.
     '''
     dem = gdal.Open(dem_path)
     arr = img2arr(dem_path)
@@ -194,23 +196,40 @@ def dem_Geo2LonLat(dem_path, save_mat=True):
     # Transform dem file
     (nx, ny, nc) = arr.shape
     arr = arr.reshape((nx*ny, nc))
-    result = np.array(ct.TransformPoints(arr))
+    result = np.array(ct.TransformPoints(arr), dtype=np.float64)
     result = result.reshape((nx, ny, nc))
     
     # Save result as npy file
     if save_mat:
         dem_path = Path(dem_path)
-        result_name = dem_path.name + '.npy'
+        result_name = dem_path.name[:-4] + '.npy'
         np.save(result_name, result)
     return result
 
+def readRPC_txt(txt):
+    keys = []
+    labels = []
+    with open(txt, 'r') as f:
+        for line in f.readlines():
+            line = line.strip('\n')
+            line = line.replace('', '.')
+            temp = line.split(':')
+            keys.append(temp[0])
+            labels.append(float(temp[1].split()[0]))
+            
+    return dict(zip(keys, labels))
 
 if __name__ == "__main__":
-    crop_path = 'E:\\optimization\\crop\\'
-    test_dem_path = crop_path + 'dem1024 11.img'
-
+    # crop_path = 'E:\\optimization\\crop\\'
+    # test_dem_path = crop_path + 'dem1024 11.img'
+    # (Unfinished!)Test readRPC_txt:
+    txt = 'E:\\optimization\\data\\001124_20121011\\ZY3_01a_hsnbavp_001124_20121011_111311_0008_SASMAC_CHN_sec_rel_001_1210128038_rpc.TXT'
+    
     # (Finished)Test function dem_Geo2LonLat
-    arr = dem_Geo2LonLat(test_dem_path)
+    # arr = np.load('./dem1024 11.npy')
+    # print(arr.shape)
+
+    # arr = dem_Geo2LonLat(test_dem_path)
     # print(arr.shape)
     # print(arr[0,0,:])
 
@@ -222,25 +241,23 @@ if __name__ == "__main__":
     # dem = gdal.Open(dem_path)
     # tif = gdal.Open(tif_path)
 
-# (Finished!)Divide dem and Select clipped dem.
+    # (Finished!)Divide dem and Select clipped dem.
     # divide_dem(dem, crop_path)
     # check_img(crop_path)
 
-    # (Finished)Test Function Point_Geo2LonLat
+    # # (Finished)Test Function Point_Geo2LonLat
     # dem = gdal.Open(test_dem_path)
     # # Get a point.
     # arr = img2arr(test_dem_path)
-    # (x1, y1) = arr[0,0,:2]
-    # (x2, y2) = arr[1,0,:2]
-    # points = [arr[0,0,:2], (x2,y2)]
-    # Get proj coord and geo coord
+    # points = [arr[0,0,:], arr[0,1,:], arr[1,0,:]]
+    # # Get proj coord and geo coord
     # dem_psrs = osr.SpatialReference()
     # dem_psrs.ImportFromWkt(dem.GetProjection())
     # dem_gsrs = dem_psrs.CloneGeogCS()
     # ct = osr.CoordinateTransformation(dem_psrs, dem_gsrs)
-    # print(arr[0,0,:])
-    # print(ct.TransformPoint(arr[0,0,:2]))
-    # print(ct.TransformPoint(*arr[0,0,:2]))
+    # # print(arr[0,0,:])
+    # # print(ct.TransformPoint(arr[0,0,:2]))
+    # # print(ct.TransformPoint(*arr[0,0,:2]))
     # print(ct.TransformPoints(points))
     
 
